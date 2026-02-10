@@ -2501,6 +2501,37 @@ if (shouldRenew && key && secret) {
                 return Boolean(XML_HEADER_CANONICAL_MAP[normalized]);
             };
 
+            const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            const extractCanonicalHeaderValuesFromXml = (xmlRaw) => {
+                const result = {};
+                if (!xmlRaw || !String(xmlRaw).trim()) return result;
+                const source = String(xmlRaw).replace(/`\s*/g, '').replace(/\s*`/g, '');
+
+                const extractLocalTagValue = (tagName) => {
+                    const safeTag = escapeRegex(tagName);
+                    const headerMatch = source.match(new RegExp(`<(?:\\w+:)?Header\\b[\\s\\S]*?<\\/(?:\\w+:)?Header>`, 'i'));
+                    if (headerMatch && headerMatch[0]) {
+                        const insideHeader = headerMatch[0];
+                        const m = insideHeader.match(new RegExp(`<(?:\\w+:)?${safeTag}\\b[^>]*>\\s*([^<]+?)\\s*<\\/(?:\\w+:)?${safeTag}>`, 'i'));
+                        if (m && m[1]) return repairMojibake(m[1].trim());
+                    }
+                    const mGlobal = source.match(new RegExp(`<(?:\\w+:)?${safeTag}\\b[^>]*>\\s*([^<]+?)\\s*<\\/(?:\\w+:)?${safeTag}>`, 'i'));
+                    return mGlobal && mGlobal[1] ? repairMojibake(mGlobal[1].trim()) : '';
+                };
+
+                const applicationValue = extractLocalTagValue('application');
+                if (applicationValue) result['X-application'] = applicationValue;
+
+                const processValue = extractLocalTagValue('process');
+                if (processValue) result['X-process'] = processValue;
+
+                const eTrackingValue = extractLocalTagValue('eTrackingID');
+                if (eTrackingValue) result['X-eTrackingID'] = eTrackingValue;
+
+                return result;
+            };
+
             const SIGNAL_ENTITIES = ['Person', 'Account', 'Contract', 'Product', 'Order', 'Billing', 'Asset', 'Party', 'Customer', 'Subscription', 'Ticket', 'Case', 'Incident', 'Payment'];
             const INTENT_KEYWORDS = ['manage', 'create', 'update', 'search', 'delete', 'activate', 'deactivate', 'validate', 'verify', 'migrate', 'sync'];
 
@@ -2659,6 +2690,27 @@ if (shouldRenew && key && secret) {
                     }
                 } catch (e) {
                     // Fall through to regex name/value fallback.
+                }
+
+                // Regex fallback scoped to Body first, then global document:
+                // 1) attribute, 2) direct element text.
+                const safeField = escapeRegex(fieldName);
+                const bodyMatch = cleanedXml.match(/<(?:\w+:)?Body\b[\s\S]*?<\/(?:\w+:)?Body>/i);
+                const searchScopes = [];
+                if (bodyMatch && bodyMatch[0]) searchScopes.push(bodyMatch[0]);
+                searchScopes.push(cleanedXml);
+
+                for (const scope of searchScopes) {
+                    const attrMatch = scope.match(new RegExp(`\\b${safeField}\\s*=\\s*"(.*?)"`, 'i'));
+                    if (attrMatch && attrMatch[1]) {
+                        const attrValue = repairMojibake(attrMatch[1].trim());
+                        if (attrValue) return attrValue;
+                    }
+                    const elementMatch = scope.match(new RegExp(`<(?:\\w+:)?${safeField}\\b[^>]*>\\s*([^<]+?)\\s*<\\/(?:\\w+:)?${safeField}>`, 'i'));
+                    if (elementMatch && elementMatch[1]) {
+                        const elementValue = repairMojibake(elementMatch[1].trim());
+                        if (elementValue) return elementValue;
+                    }
                 }
 
                 const pairMap = extractNameValuePairs(cleanedXml);
@@ -3424,6 +3476,31 @@ if (shouldRenew && key && secret) {
                         removable: true,
                         locked: false
                     });
+                });
+
+                // Override canonic headers directly from log fields when present.
+                const canonicalHeaderValues = extractCanonicalHeaderValuesFromXml(xmlText);
+                Object.entries(canonicalHeaderValues).forEach(([headerKey, headerValue]) => {
+                    if (!headerValue) return;
+                    const idx = findHeaderIndexByKey(mapping.headers, headerKey);
+                    if (idx < 0) {
+                        addOrMergeHeader(mapping.headers, {
+                            key: headerKey,
+                            value: headerValue,
+                            enabled: true,
+                            description: '[XML] Valor mapeado automaticamente do log',
+                            source: 'xml',
+                            removable: true,
+                            locked: false
+                        });
+                        return;
+                    }
+                    mapping.headers[idx].value = headerValue;
+                    const tag = '[XML] Valor mapeado automaticamente do log';
+                    const existingDesc = mapping.headers[idx].description || '';
+                    if (!existingDesc.includes(tag)) {
+                        mapping.headers[idx].description = existingDesc ? `${tag} ${existingDesc}` : tag;
+                    }
                 });
 
                 // Body JSON
