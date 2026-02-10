@@ -1749,9 +1749,13 @@ if (shouldRenew && key && secret) {
                 }
 
                 if (platform === 'apigee-x' || platform === 'apigeex') {
-                    return normalizedProxyName.startsWith('apigee-x-')
-                        ? normalizedProxyName
-                        : `apigee-x-${normalizedProxyName}`;
+                    if (normalizedProxyName.startsWith('apigee-x-temp-')) {
+                        return normalizedProxyName;
+                    }
+                    if (normalizedProxyName.startsWith('apigee-x-')) {
+                        return normalizedProxyName.replace(/^apigee-x-/, 'apigee-x-temp-');
+                    }
+                    return `apigee-x-temp-${normalizedProxyName}`;
                 }
 
                 return '';
