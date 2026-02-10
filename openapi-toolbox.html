@@ -2485,6 +2485,22 @@ if (shouldRenew && key && secret) {
                 return unique;
             };
 
+            const XML_HEADER_CANONICAL_MAP = {
+                process: 'X-process',
+                etrackingid: 'X-eTrackingID',
+                application: 'X-application'
+            };
+
+            const getCanonicalHeaderKeyFromXml = (rawKey) => {
+                const normalized = normalizeKey(rawKey);
+                return XML_HEADER_CANONICAL_MAP[normalized] || rawKey;
+            };
+
+            const isPromotedXmlHeader = (rawKey) => {
+                const normalized = normalizeKey(rawKey);
+                return Boolean(XML_HEADER_CANONICAL_MAP[normalized]);
+            };
+
             const SIGNAL_ENTITIES = ['Person', 'Account', 'Contract', 'Product', 'Order', 'Billing', 'Asset', 'Party', 'Customer', 'Subscription', 'Ticket', 'Case', 'Incident', 'Payment'];
             const INTENT_KEYWORDS = ['manage', 'create', 'update', 'search', 'delete', 'activate', 'deactivate', 'validate', 'verify', 'migrate', 'sync'];
 
@@ -3296,9 +3312,28 @@ if (shouldRenew && key && secret) {
                 // Headers encontrados no XML (listados mas desmarcados)
                 const xmlHeaders = extractHeadersFromXmlLog(xmlText);
                 xmlHeaders.forEach(h => {
+                    const canonicalKey = getCanonicalHeaderKeyFromXml(h.key);
+                    const incomingValue = String(h.value || '').trim();
+                    const promoted = isPromotedXmlHeader(h.key);
+                    const existingIdx = findHeaderIndexByKey(mapping.headers, canonicalKey);
+
+                    if (promoted && existingIdx >= 0) {
+                        if (incomingValue) {
+                            mapping.headers[existingIdx].value = incomingValue;
+                        }
+                        const tag = '[XML] Valor mapeado automaticamente do log';
+                        const existingDesc = mapping.headers[existingIdx].description || '';
+                        if (!existingDesc.includes(tag)) {
+                            mapping.headers[existingIdx].description = existingDesc
+                                ? `${tag} ${existingDesc}`
+                                : tag;
+                        }
+                        return;
+                    }
+
                     addOrMergeHeader(mapping.headers, {
-                        key: h.key,
-                        value: h.value || '',
+                        key: canonicalKey,
+                        value: incomingValue,
                         enabled: false,
                         description: '[XML] Header detetado no log',
                         source: 'xml',
