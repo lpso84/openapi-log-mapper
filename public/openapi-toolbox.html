@@ -1728,6 +1728,16 @@ if (shouldRenew && key && secret) {
                     .replace(/^-|-$/g, '');
             };
 
+            const normalizeDocsApiNameKeepCase = (name) => {
+                if (!name) return '';
+                return String(name)
+                    .trim()
+                    .replace(/[\s_]+/g, '-')
+                    .replace(/[^a-zA-Z0-9-]/g, '')
+                    .replace(/-+/g, '-')
+                    .replace(/^-|-$/g, '');
+            };
+
             const getDocsVersion = (row) => {
                 // O portal de docs usa versão de documentação própria; por omissão é 1.
                 const explicitDocVersion = getValue(row, ['Docs Version', 'DOCS VERSION', 'docsVersion', 'Api Docs Version']);
@@ -1773,7 +1783,19 @@ if (shouldRenew && key && secret) {
                 if (!apiSlug) return '';
                 const platform = getPlatform(row).toLowerCase().replace(/\s+/g, '');
                 if (platform === 'apigee-x' || platform === 'apigeex') {
-                    if (!apiSlug.startsWith('apigee-x-temp-')) {
+                    // Use Name with case preserved for download endpoint, as some portal snapshots
+                    // can be case-sensitive on api id.
+                    const rawProxyName = getProxyName(row);
+                    const rawSlug = normalizeDocsApiNameKeepCase(rawProxyName);
+                    if (rawSlug) {
+                        if (/^apigee-x-temp-/i.test(rawSlug)) {
+                            apiSlug = rawSlug;
+                        } else if (/^apigee-x-/i.test(rawSlug)) {
+                            apiSlug = rawSlug.replace(/^apigee-x-/i, 'apigee-x-temp-');
+                        } else {
+                            apiSlug = `apigee-x-temp-${rawSlug}`;
+                        }
+                    } else if (!apiSlug.startsWith('apigee-x-temp-')) {
                         if (apiSlug.startsWith('apigee-x-')) {
                             apiSlug = apiSlug.replace(/^apigee-x-/, 'apigee-x-temp-');
                         } else {
