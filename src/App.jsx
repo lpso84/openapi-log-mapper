@@ -1738,6 +1738,7 @@ if (shouldRenew && key && secret) {
         // TAB 2: Pesquisa CSV
         function CSVSearch({ csvData, setCsvData, headers, setHeaders, searchTerm, setSearchTerm, filterAvailable, setFilterAvailable, selectedRow, setSelectedRow }) {
             const listRef = useRef(null);
+            const drawerDialogRef = useRef(null);
             const [groupBy, setGroupBy] = useState('target');
             const [expandedGroups, setExpandedGroups] = useState({});
             const [activeIndex, setActiveIndex] = useState(0);
@@ -2059,6 +2060,59 @@ if (shouldRenew && key && secret) {
                 }
                 setActiveIndex(prev => Math.max(0, Math.min(prev, visibleRows.length - 1)));
             }, [visibleRows.length]);
+
+            useEffect(() => {
+                if (!drawerOpen || !selectedRow) return undefined;
+                const dialog = drawerDialogRef.current;
+                if (!dialog) return undefined;
+
+                const previousActive = document.activeElement;
+                const focusables = dialog.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                );
+                if (focusables.length > 0) {
+                    focusables[0].focus();
+                } else {
+                    dialog.focus();
+                }
+
+                const handleKeyDown = (event) => {
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        setDrawerOpen(false);
+                        return;
+                    }
+
+                    if (event.key !== 'Tab') return;
+
+                    const nodes = dialog.querySelectorAll(
+                        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                    );
+                    if (!nodes.length) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    const first = nodes[0];
+                    const last = nodes[nodes.length - 1];
+                    const active = document.activeElement;
+                    if (event.shiftKey && active === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && active === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                };
+
+                document.addEventListener('keydown', handleKeyDown);
+                return () => {
+                    document.removeEventListener('keydown', handleKeyDown);
+                    if (previousActive && typeof previousActive.focus === 'function') {
+                        previousActive.focus();
+                    }
+                };
+            }, [drawerOpen, selectedRow]);
 
             const handleKeyboardList = (e) => {
                 if (!visibleRows.length) return;
@@ -2403,13 +2457,21 @@ if (shouldRenew && key && secret) {
                     )}
 
                     {drawerOpen && selectedRow && (
-                        <div className="lg:hidden fixed inset-0 bg-black/40 z-50 flex items-end">
-                            <div className="bg-white w-full rounded-t-xl p-4 max-h-[90vh] overflow-auto">
+                        <div className="lg:hidden fixed inset-0 bg-black/40 z-50 flex items-end" role="presentation">
+                            <div
+                                ref={drawerDialogRef}
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="csv-detail-dialog-title"
+                                className="bg-white w-full rounded-t-xl p-4 max-h-[90vh] overflow-auto"
+                                tabIndex={-1}
+                            >
                                 <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-sm font-semibold">Detalhe</h3>
+                                    <h3 id="csv-detail-dialog-title" className="text-sm font-semibold">Detalhe</h3>
                                     <button
                                         onClick={() => setDrawerOpen(false)}
                                         className="px-3 py-1 text-sm border border-slate-300 rounded-md"
+                                        aria-label="Fechar detalhe da operação"
                                     >
                                         Fechar
                                     </button>
@@ -4308,6 +4370,7 @@ if (shouldRenew && key && secret) {
             const [showCollapsedXmlHeaders, setShowCollapsedXmlHeaders] = useState(false);
             const codeBlockRef = useRef(null);
             const bodyCodeRef = useRef(null);
+            const modalRef = useRef(null);
 
             useEffect(() => {
                 if (codeBlockRef.current) {
@@ -4330,6 +4393,58 @@ if (shouldRenew && key && secret) {
                     hljs.highlightElement(bodyCodeRef.current);
                 }
             }, [currentBody]);
+
+            useEffect(() => {
+                const dialog = modalRef.current;
+                if (!dialog) return undefined;
+
+                const previousActive = document.activeElement;
+                const focusables = dialog.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                );
+                if (focusables.length > 0) {
+                    focusables[0].focus();
+                } else {
+                    dialog.focus();
+                }
+
+                const handleKeyDown = (event) => {
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        onCancel();
+                        return;
+                    }
+
+                    if (event.key !== 'Tab') return;
+
+                    const nodes = dialog.querySelectorAll(
+                        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                    );
+                    if (!nodes.length) {
+                        event.preventDefault();
+                        return;
+                    }
+
+                    const first = nodes[0];
+                    const last = nodes[nodes.length - 1];
+                    const active = document.activeElement;
+                    if (event.shiftKey && active === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && active === last) {
+                        event.preventDefault();
+                        first.focus();
+                    }
+                };
+
+                document.addEventListener('keydown', handleKeyDown);
+                return () => {
+                    document.removeEventListener('keydown', handleKeyDown);
+                    if (previousActive && typeof previousActive.focus === 'function') {
+                        previousActive.focus();
+                    }
+                };
+            }, [onCancel]);
 
             const updateMapping = (type, index, field, value) => {
                 const newData = { ...mappingData };
@@ -4420,12 +4535,16 @@ if (shouldRenew && key && secret) {
                     }`}
                 >
                     <div className="flex gap-2 items-center mb-1">
+                        <label htmlFor={`header-enabled-${index}`} className="sr-only">{`Ativar header ${header.key || index}`}</label>
                         <input
+                            id={`header-enabled-${index}`}
                             type="checkbox"
                             checked={header.enabled}
                             onChange={(e) => updateMapping('headers', index, 'enabled', e.target.checked)}
                         />
+                        <label htmlFor={`header-key-${index}`} className="sr-only">{`Nome do header ${index + 1}`}</label>
                         <input
+                            id={`header-key-${index}`}
                             type="text"
                             value={header.key}
                             onChange={(e) => updateMapping('headers', index, 'key', e.target.value)}
@@ -4433,7 +4552,9 @@ if (shouldRenew && key && secret) {
                             className={`w-44 px-2 py-1 border border-gray-300 rounded text-sm font-mono ${header.locked ? 'bg-gray-50 text-gray-700' : 'bg-white'}`}
                             placeholder="Header-Name"
                         />
+                        <label htmlFor={`header-value-${index}`} className="sr-only">{`Valor do header ${header.key || index}`}</label>
                         <input
+                            id={`header-value-${index}`}
                             type="text"
                             value={header.value}
                             onChange={(e) => updateMapping('headers', index, 'value', e.target.value)}
@@ -4461,10 +4582,21 @@ if (shouldRenew && key && secret) {
             );
 
             return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="presentation">
+                    <div
+                        ref={modalRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="mapping-modal-title"
+                        aria-describedby="mapping-modal-description"
+                        className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+                        tabIndex={-1}
+                    >
                         <div className="p-6">
-                            <h2 className="text-xl font-bold mb-4">Mapeamento XML → JSON</h2>
+                            <h2 id="mapping-modal-title" className="text-xl font-bold mb-4">Mapeamento XML → JSON</h2>
+                            <p id="mapping-modal-description" className="sr-only">
+                                Modal para rever o mapeamento antes de gerar o comando cURL.
+                            </p>
                             
                             <div className="grid grid-cols-2 gap-4 items-stretch">
                                 <div className="h-full flex flex-col">
@@ -4476,17 +4608,21 @@ if (shouldRenew && key && secret) {
                                     {/* Path Params */}
                                     {mappingData.pathParams.length > 0 && (
                                         <div>
-                                            <h3 className="font-semibold mb-2">Path Params</h3>
+                                                <h3 className="font-semibold mb-2">Path Params</h3>
                                             <div className="space-y-2">
                                                 {mappingData.pathParams.map((param, idx) => (
                                                     <div key={idx} className="flex gap-2 items-center">
+                                                        <label htmlFor={`path-enabled-${idx}`} className="sr-only">{`Ativar path param ${param.key}`}</label>
                                                         <input
+                                                            id={`path-enabled-${idx}`}
                                                             type="checkbox"
                                                             checked={param.enabled}
                                                             onChange={(e) => updateMapping('pathParams', idx, 'enabled', e.target.checked)}
                                                         />
                                                         <span className="w-24 text-sm font-mono">{param.key}:</span>
+                                                        <label htmlFor={`path-value-${idx}`} className="sr-only">{`Valor do path param ${param.key}`}</label>
                                                         <input
+                                                            id={`path-value-${idx}`}
                                                             type="text"
                                                             value={param.value}
                                                             onChange={(e) => updateMapping('pathParams', idx, 'value', e.target.value)}
@@ -4501,17 +4637,21 @@ if (shouldRenew && key && secret) {
                                     {/* Query Params */}
                                     {mappingData.queryParams.length > 0 && (
                                         <div>
-                                            <h3 className="font-semibold mb-2">Query Params</h3>
+                                                <h3 className="font-semibold mb-2">Query Params</h3>
                                             <div className="space-y-2">
                                                 {mappingData.queryParams.map((param, idx) => (
                                                     <div key={idx} className="flex gap-2 items-center">
+                                                        <label htmlFor={`query-enabled-${idx}`} className="sr-only">{`Ativar query param ${param.key}`}</label>
                                                         <input
+                                                            id={`query-enabled-${idx}`}
                                                             type="checkbox"
                                                             checked={param.enabled}
                                                             onChange={(e) => updateMapping('queryParams', idx, 'enabled', e.target.checked)}
                                                         />
                                                         <span className="w-24 text-sm font-mono">{param.key}:</span>
+                                                        <label htmlFor={`query-value-${idx}`} className="sr-only">{`Valor do query param ${param.key}`}</label>
                                                         <input
+                                                            id={`query-value-${idx}`}
                                                             type="text"
                                                             value={param.value}
                                                             onChange={(e) => updateMapping('queryParams', idx, 'value', e.target.value)}
