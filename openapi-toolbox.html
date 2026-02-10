@@ -1996,6 +1996,7 @@ if (shouldRenew && key && secret) {
             };
 
             const isNetworkHeader = (header) => /^network$/i.test(String(header || '').trim());
+            const isPlatformHeader = (header) => /^platform$/i.test(String(header || '').trim());
 
             const DetailPanel = ({ row }) => {
                 if (!row) {
@@ -2092,6 +2093,17 @@ if (shouldRenew && key && secret) {
                                                     </span>
                                                 )) : <span className="text-slate-900">-</span>}
                                             </div>
+                                        ) : isPlatformHeader(header) ? (
+                                            (() => {
+                                                const platform = getPlatform(row);
+                                                return platform && platform !== '-' ? (
+                                                    <span
+                                                        className={`inline-flex px-2 py-0.5 rounded-full border text-[11px] font-semibold ${platformBadgeClass(platform)}`}
+                                                    >
+                                                        {platform}
+                                                    </span>
+                                                ) : <span className="text-slate-900">-</span>;
+                                            })()
                                         ) : (
                                             <span className="text-slate-900 break-all">{row[header] || '-'}</span>
                                         )}
