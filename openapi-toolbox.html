@@ -2585,6 +2585,92 @@ if (shouldRenew && key && secret) {
                 return result;
             };
 
+            const findXmlFieldValueInScope = (scopeRoot, targetFieldNorm) => {
+                if (!scopeRoot || !targetFieldNorm) return '';
+                const stack = [scopeRoot];
+
+                while (stack.length > 0) {
+                    const node = stack.shift();
+                    if (!node || node.nodeType !== 1) continue;
+
+                    // 1) Attribute match (highest priority)
+                    if (node.attributes && node.attributes.length > 0) {
+                        for (let i = 0; i < node.attributes.length; i++) {
+                            const attr = node.attributes[i];
+                            const attrNameNorm = normalizeKey(getLocalName(attr) || attr.name);
+                            if (attrNameNorm !== targetFieldNorm) continue;
+                            const attrValue = repairMojibake(attr.value?.trim());
+                            if (attrValue) return attrValue;
+                        }
+                    }
+
+                    // 2) Generic <name>/<value> pair in current node
+                    const nameNode = findChildByLocalName(node, 'name');
+                    const valueNode = findChildByLocalName(node, 'value');
+                    if (nameNode && valueNode) {
+                        const pairName = normalizeKey(repairMojibake(nameNode.textContent?.trim()));
+                        if (pairName === targetFieldNorm) {
+                            const pairValue = repairMojibake(valueNode.textContent?.trim());
+                            if (pairValue) return pairValue;
+                        }
+                    }
+
+                    // 3) Element name match (only if it is effectively a leaf with text)
+                    const nodeNameNorm = normalizeKey(getLocalName(node));
+                    if (nodeNameNorm === targetFieldNorm) {
+                        const hasElementChildren = Array.from(node.childNodes || []).some((c) => c.nodeType === 1);
+                        const textValue = repairMojibake(node.textContent?.trim());
+                        if (!hasElementChildren && textValue) return textValue;
+                    }
+
+                    const children = Array.from(node.childNodes || []).filter((c) => c.nodeType === 1);
+                    stack.push(...children);
+                }
+
+                return '';
+            };
+
+            const extractParamValueFromXml = (xmlRaw, fieldName) => {
+                if (!xmlRaw || !fieldName) return '';
+                const targetFieldNorm = normalizeKey(fieldName);
+                if (!targetFieldNorm) return '';
+
+                const cleanedXml = String(xmlRaw).replace(/`\s*/g, '').replace(/\s*`/g, '');
+                try {
+                    const xmlDoc = parseXmlSafely(cleanedXml);
+                    const allElements = Array.from(xmlDoc.getElementsByTagName('*'));
+                    const bodyNode = allElements.find((el) => normalizeKey(getLocalName(el)) === 'body');
+
+                    // First search only in SOAP body payload to avoid header contamination.
+                    if (bodyNode) {
+                        const bodyChildren = Array.from(bodyNode.childNodes || []).filter((n) => n.nodeType === 1);
+                        const primaryScopes = bodyChildren.length > 0 ? bodyChildren : [bodyNode];
+                        for (const scope of primaryScopes) {
+                            const value = findXmlFieldValueInScope(scope, targetFieldNorm);
+                            if (value) return value;
+                        }
+                    }
+
+                    // Fallback to full document search.
+                    const root = xmlDoc.documentElement;
+                    if (root) {
+                        const fallbackValue = findXmlFieldValueInScope(root, targetFieldNorm);
+                        if (fallbackValue) return fallbackValue;
+                    }
+                } catch (e) {
+                    // Fall through to regex name/value fallback.
+                }
+
+                const pairMap = extractNameValuePairs(cleanedXml);
+                for (const [key, value] of Object.entries(pairMap)) {
+                    if (normalizeKey(key) !== targetFieldNorm) continue;
+                    const repaired = repairMojibake(value?.trim());
+                    if (repaired) return repaired;
+                }
+
+                return '';
+            };
+
             const extractDomainService = (text) => {
                 if (!text) return { domain: '', service: '', namespace: '' };
                 const source = String(text);
@@ -3238,9 +3324,8 @@ if (shouldRenew && key && secret) {
                     const name = param.replace(/[{}]/g, '');
                     const paramDef = op.parameters?.find(p => p.name === name && p.in === 'path');
                     let value = '';
-                    // Tentar extrair do XML (simples)
-                    const xmlMatch = xmlText.match(new RegExp(`<${name}[^>]*>([^<]+)</${name}>`, 'i'));
-                    if (xmlMatch) value = xmlMatch[1];
+                    // Extrair do XML (prioriza body/atributos e evita colisão com header metadata)
+                    value = extractParamValueFromXml(xmlText, name);
                     mapping.pathParams.push({
                         key: name,
                         value: value || (paramDef?.example || paramDef?.default || ''),
@@ -3254,9 +3339,8 @@ if (shouldRenew && key && secret) {
                         .filter(p => p.in === 'query')
                         .forEach(p => {
                             let value = p.example || p.default || '';
-                            // Tentar extrair do XML
-                            const xmlMatch = xmlText.match(new RegExp(`<${p.name}[^>]*>([^<]+)</${p.name}>`, 'i'));
-                            if (xmlMatch) value = xmlMatch[1];
+                            const valueFromXml = extractParamValueFromXml(xmlText, p.name);
+                            if (valueFromXml) value = valueFromXml;
                             mapping.queryParams.push({
                                 key: p.name,
                                 value,
