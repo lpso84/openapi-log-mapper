@@ -3526,21 +3526,16 @@ if (shouldRenew && key && secret) {
                                 let cleanedXml = xmlText.replace(/`\s*/g, '').replace(/\s*`/g, '');
 
                                 // 2. Extrair conteúdo da tag <message> se existir
+                                // (aceita prefixo de namespace e atributos).
                                 let contentToParse = cleanedXml;
-                                const messageMatch = cleanedXml.match(/<message>([\s\S]*)<\/message>/i);
+                                const messageMatch = cleanedXml.match(/<(?:\w+:)?message\b[^>]*>([\s\S]*?)<\/(?:\w+:)?message>/i);
                                 if (messageMatch && messageMatch[1]) {
                                     contentToParse = messageMatch[1].trim();
                                 }
 
-                                // 3. Extrair o body do SOAP, independentemente do prefixo (soap:, soapenv:, etc)
-                                let xmlToMap = contentToParse;
-                                const soapBodyMatch = contentToParse.match(/<(\w+:)?Body>([\s\S]*)<\/(\w+:)?Body>/i);
-                                if (soapBodyMatch && soapBodyMatch[2]) {
-                                    xmlToMap = soapBodyMatch[2].trim();
-                                }
-
-                                // Parse XML with error detection - abort if invalid
-                                const xmlDoc = parseXmlSafely(xmlToMap);
+                                // 3. Parse do XML completo (sem recortar apenas o Body),
+                                // para preservar declarações de namespace do Envelope.
+                                const xmlDoc = parseXmlSafely(contentToParse);
                                 
                                 // Select the best payload node based on schema
                                 const resolvedBodySchema = resolveSchema(bodySchema, spec);
