@@ -18,7 +18,8 @@ export default function handler(req, res) {
   const requiredToken = (process.env.DATASET_TOKEN || '').trim();
   const suppliedToken = getTokenFromRequest(req);
 
-  if (!requiredToken || suppliedToken !== requiredToken) {
+  // Require auth only when DATASET_TOKEN is configured.
+  if (requiredToken && suppliedToken !== requiredToken) {
     res.status(401).json({ error: 'unauthorized' });
     return;
   }
