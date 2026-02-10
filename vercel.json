@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/openapi-toolbox.html",
+      "destination": "/"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

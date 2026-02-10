@@ -32,17 +32,16 @@ Ferramenta técnica para:
 
 ## Stack
 
-- React 18 (UMD no `openapi-toolbox.html` + app Vite em `src/`)
+- React 18 + Vite (app em `src/`)
 - Tailwind CSS
 - Highlight.js
 - js-yaml
 
 ## Estrutura relevante
 
-- `openapi-toolbox.html`: versão standalone principal (UI completa num único ficheiro)
-- `src/App.jsx`: versão modular React/Vite
+- `src/App.jsx`: aplicação principal React/Vite
 - `proxies_catalog_apigee2.csv`: catálogo CSV mais recente
-- `default-csv-data.js`: fallback embutido do CSV
+- fallback CSV via API (`/api/dataset`)
 - `tests/core-utils.test.js`: testes unitários de utilitários
 
 ## Como executar
@@ -52,9 +51,6 @@ Ferramenta técnica para:
 npm install
 npm run dev
 ```
-
-### Opção B: standalone
-Abrir `openapi-toolbox.html` no browser.
 
 ## Scripts
 
