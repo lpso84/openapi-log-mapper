@@ -1388,6 +1388,47 @@ if (shouldRenew && key && secret) {
             return collection;
         }
 
+        const TOAST_DURATION_MS = 4500;
+
+        function ToastStack({ toasts, onDismiss }) {
+            if (!toasts.length) return null;
+
+            const toneClasses = {
+                success: 'bg-emerald-600 text-white',
+                error: 'bg-rose-600 text-white',
+                warning: 'bg-amber-400 text-slate-900',
+                info: 'bg-slate-800 text-white'
+            };
+
+            return (
+                <div className="fixed top-4 right-4 z-[100] w-[92vw] max-w-sm space-y-2">
+                    {toasts.map((toast) => (
+                        <div
+                            key={toast.id}
+                            role={toast.type === 'error' ? 'alert' : 'status'}
+                            aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+                            className={`shadow-lg rounded-md px-4 py-3 flex items-start justify-between gap-3 ${
+                                toneClasses[toast.type] || toneClasses.info
+                            }`}
+                        >
+                            <div className="text-sm leading-snug">
+                                <span className="sr-only">{toast.type}:</span>
+                                {toast.message}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => onDismiss(toast.id)}
+                                className="text-xs uppercase tracking-wide opacity-80 hover:opacity-100"
+                                aria-label="Fechar notificação"
+                            >
+                                Fechar
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
         // Componente principal
         function App() {
             const [activeTab, setActiveTab] = useState(0);
@@ -1398,9 +1439,30 @@ if (shouldRenew && key && secret) {
             const [csvSearchTerm, setCsvSearchTerm] = useState('');
             const [csvFilterAvailable, setCsvFilterAvailable] = useState(true);
             const [csvSelectedRow, setCsvSelectedRow] = useState(null);
+            const [toasts, setToasts] = useState([]);
+            const toastIdRef = useRef(0);
+
+            const dismissToast = (id) => {
+                setToasts((prev) => prev.filter((toast) => toast.id !== id));
+            };
+
+            const pushToast = React.useCallback((type, message, options = {}) => {
+                const text = String(message || '').trim();
+                if (!text) return;
+                const id = `toast_${Date.now()}_${toastIdRef.current++}`;
+                const toastType = type || 'info';
+                setToasts((prev) => [...prev, { id, type: toastType, message: text }]);
+                const duration = Number.isFinite(options.duration) ? options.duration : TOAST_DURATION_MS;
+                if (duration > 0) {
+                    window.setTimeout(() => {
+                        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+                    }, duration);
+                }
+            }, []);
 
             return (
                 <div className="max-w-7xl mx-auto px-4">
+                    <ToastStack toasts={toasts} onDismiss={dismissToast} />
                     <h1 className="text-3xl font-bold text-gray-900 mb-6">OpenAPI Toolbox</h1>
                     
                     <div className="bg-white rounded-lg shadow-lg">
@@ -1424,7 +1486,7 @@ if (shouldRenew && key && secret) {
 
                         <div className="p-6">
                             <div className={activeTab === 0 ? 'block' : 'hidden'}>
-                                <CurlGenerator csvData={csvData} />
+                                <CurlGenerator csvData={csvData} pushToast={pushToast} />
                             </div>
 
                             <div className={activeTab === 1 ? 'block' : 'hidden'}>
@@ -2433,7 +2495,7 @@ if (shouldRenew && key && secret) {
         }
 
         // TAB 3: Gerador cURL
-        function CurlGenerator({ csvData = [] }) {
+        function CurlGenerator({ csvData = [], pushToast }) {
             const [specText, setSpecText] = useState('');
             const [spec, setSpec] = useState(null);
             const [operations, setOperations] = useState([]);
@@ -2464,6 +2526,17 @@ if (shouldRenew && key && secret) {
             const xmlHighlightRef = useRef(null);
             const specTextareaRef = useRef(null);
             const xmlTextareaRef = useRef(null);
+            const notify = (type, message, options) => {
+                if (pushToast) {
+                    pushToast(type, message, options);
+                    return;
+                }
+                if (type === 'error') {
+                    console.error(message);
+                } else {
+                    console.log(message);
+                }
+            };
 
             useEffect(() => {
                 setSavedSpecs(safeReadHistory(CURL_SPEC_HISTORY_KEY));
@@ -3353,7 +3426,7 @@ if (shouldRenew && key && secret) {
                         setXmlText(text);
                     }
                 } catch (e) {
-                    alert('Erro ao ler arquivo: ' + e.message);
+                    notify('error', `Erro ao ler arquivo: ${e.message}`);
                 }
             };
 
@@ -3394,13 +3467,13 @@ if (shouldRenew && key && secret) {
                     } else {
                         const yamlResult = validateYAML(specText);
                         if (!yamlResult.valid) {
-                            alert('Spec inválida');
+                            notify('error', 'Spec inválida.');
                             return;
                         }
                         parsed = parseYAML(specText);
                     }
                 } catch (e) {
-                    alert(`Erro: ${e.message}`);
+                    notify('error', `Erro: ${e.message}`);
                     return;
                 }
 
@@ -3460,7 +3533,7 @@ if (shouldRenew && key && secret) {
 
             const handlePrepareMapping = () => {
                 if (!selectedOp || !xmlText.trim()) {
-                    alert('Selecione uma operação e cole XML de exemplo');
+                    notify('warning', 'Selecione uma operação e cole XML de exemplo.');
                     return;
                 }
 
@@ -3656,7 +3729,7 @@ if (shouldRenew && key && secret) {
                                 }
                             } catch (e) {
                                 // Show user-friendly error and abort mapping
-                                alert(`Erro ao mapear XML: ${e.message}`);
+                                notify('error', `Erro ao mapear XML: ${e.message}`);
                                 console.warn('Erro ao mapear XML:', e);
                                 // Continue with example data instead of failing completely
                             }
@@ -3741,7 +3814,7 @@ if (shouldRenew && key && secret) {
                         : curlOutput;
 
                     navigator.clipboard.writeText(textToCopy).then(() => {
-                        alert('cURL copiado!');
+                        notify('success', 'cURL copiado.');
                     });
                 }
             };
