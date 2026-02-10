@@ -1769,8 +1769,18 @@ if (shouldRenew && key && secret) {
             };
 
             const buildOperationDownloadSpecUrl = (row) => {
-                const apiSlug = buildDocsApiSlug(row);
+                let apiSlug = buildDocsApiSlug(row);
                 if (!apiSlug) return '';
+                const platform = getPlatform(row).toLowerCase().replace(/\s+/g, '');
+                if (platform === 'apigee-x' || platform === 'apigeex') {
+                    if (!apiSlug.startsWith('apigee-x-temp-')) {
+                        if (apiSlug.startsWith('apigee-x-')) {
+                            apiSlug = apiSlug.replace(/^apigee-x-/, 'apigee-x-temp-');
+                        } else {
+                            apiSlug = `apigee-x-temp-${apiSlug}`;
+                        }
+                    }
+                }
                 return `${docsDownloadBase}/${apiSlug}/download_spec`;
             };
 
