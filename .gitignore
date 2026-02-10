@@ -1,6 +1,10 @@
 # Logs
 logs
 *.log
+*.tmp.log
+*.temp.log
+*.trace
+*.stackdump
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -38,10 +42,35 @@ coverage/
 .env
 .env.*
 !.env.example
+.env.local
+.env.*.local
+
+# Secrets and certificates
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
 
 # OS / editor
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100/
+.Trashes/
+.fseventsd
 .vscode-test/
 
 # Yarn v3
