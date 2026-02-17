@@ -2582,7 +2582,7 @@ if (shouldRenew && key && secret) {
             const [autoSuggestion, setAutoSuggestion] = useState(null);
             const [analysisTab, setAnalysisTab] = useState('signals');
             const [analysisExpanded, setAnalysisExpanded] = useState(false);
-            const [autoFiltersEnabled, setAutoFiltersEnabled] = useState(true);
+            const [autoFiltersEnabled, setAutoFiltersEnabled] = useState(false);
             const [suggestionFilters, setSuggestionFilters] = useState(null);
             const specHighlightRef = useRef(null);
             const xmlHighlightRef = useRef(null);
@@ -3287,11 +3287,9 @@ if (shouldRenew && key && secret) {
             };
 
             const filterOperationWithSuggestion = (op) => {
+                // A sugestao deve ser apenas consultiva: nunca esconder opcoes.
                 if (!autoFiltersEnabled || !suggestionFilters) return true;
-                if (!matchByServiceOrDomain(op, suggestionFilters)) return false;
-                if (Array.isArray(suggestionFilters.candidateKeys) && suggestionFilters.candidateKeys.length > 0) {
-                    return suggestionFilters.candidateKeys.includes(candidateKey(op));
-                }
+                if (!matchByServiceOrDomain(op, suggestionFilters)) return true;
                 return true;
             };
 
@@ -3398,21 +3396,15 @@ if (shouldRenew && key && secret) {
                         }
                     });
                     setSuggestionFilters(partialPayload.suggestionFilters);
-                    setAutoFiltersEnabled(true);
                     return;
-                }
-
-                if (!selectedOp || selectedOp.path !== best.op.path || selectedOp.method !== best.op.method) {
-                    setSelectedOp(best.op);
                 }
 
                 const successPayload = formatSuggestionPayload(best, ranked, signals);
                 setAutoSuggestion(successPayload);
                 setSuggestionFilters(successPayload.suggestionFilters);
-                setAutoFiltersEnabled(true);
                 setAnalysisTab('signals');
                 setAnalysisExpanded(false);
-            }, [xmlText, operations, csvData, selectedOp]);
+            }, [xmlText, operations, csvData]);
 
             const saveValidatedSpecToLocalHistory = (parsedSpec, sourceText, extension) => {
                 const title = parsedSpec?.info?.title || 'openapi_spec';
