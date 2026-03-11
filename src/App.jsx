@@ -11,6 +11,29 @@ hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('json', json);
 hljs.registerLanguage('yaml', yaml);
 hljs.registerLanguage('bash', bash);
+
+function AppLogo({ className = '' }) {
+    return (
+        <svg
+            viewBox="0 0 64 64"
+            aria-hidden="true"
+            className={className}
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <defs>
+                <linearGradient id="app-logo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#0f172a" />
+                    <stop offset="100%" stopColor="#1d4ed8" />
+                </linearGradient>
+            </defs>
+            <rect width="64" height="64" rx="14" fill="url(#app-logo-bg)" />
+            <path
+                d="M20 18h8l-8 14 8 14h-8L12 32l8-14Zm16 0h8l8 14-8 14h-8l8-14-8-14Z"
+                fill="#f8fafc"
+            />
+        </svg>
+    );
+}
 // YAML Parser simples
         function parseYAML(yamlStr) {
             try {
@@ -1463,7 +1486,10 @@ if (shouldRenew && key && secret) {
             return (
                 <div className="max-w-7xl mx-auto px-4">
                     <ToastStack toasts={toasts} onDismiss={dismissToast} />
-                    <h1 className="text-3xl font-bold text-gray-900 mb-6">OpenAPI Toolbox</h1>
+                    <div className="mb-6 flex items-center gap-3">
+                        <AppLogo className="h-11 w-11 shrink-0" />
+                        <h1 className="text-3xl font-bold text-gray-900">OpenAPI Toolbox</h1>
+                    </div>
                     
                     <div className="bg-white rounded-lg shadow-lg">
                         <div className="border-b border-gray-200">
