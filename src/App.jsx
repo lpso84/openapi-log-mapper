@@ -1484,7 +1484,7 @@ if (shouldRenew && key && secret) {
             }, []);
 
             return (
-                <div className="max-w-7xl mx-auto px-4">
+                <div className="max-w-7xl mx-auto px-4 pt-6">
                     <ToastStack toasts={toasts} onDismiss={dismissToast} />
                     <div className="mb-6 flex items-center gap-3">
                         <AppLogo className="h-11 w-11 shrink-0" />
